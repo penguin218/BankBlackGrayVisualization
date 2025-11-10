@@ -1,0 +1,103 @@
+.account-list {
+  padding: 20px;
+  background-color: #1b2330;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.filter-section {
+  background-color: #2b3542;
+  padding: 20px;
+  border-radius: 4px;
+  margin-bottom: 20px;
+}
+
+.filter-form {
+  .el-form-item {
+    margin-bottom: 15px;
+  }
+}
+
+.filter-actions {
+  text-align: right;
+}
+
+.table-section {
+  flex: 1;
+  overflow: hidden;
+  width: 100%;
+  position: relative;
+}
+
+.account-table {
+  background-color: #1b2330;
+  color: #e0e0e0;
+  width: 100%;
+  overflow-x: auto;
+  display: block;
+
+  /* 关键修改：确保表头和表格主体使用相同的滚动行为 */
+  :deep(.el-table__header-wrapper),
+  :deep(.el-table__body-wrapper) {
+    width: 100% !important;
+    overflow: visible;
+  }
+
+  /* 确保整个表格容器可滚动 */
+  :deep(.el-table__header),
+  :deep(.el-table__body) {
+    width: 100% !important;
+    min-width: 100% !important;
+  }
+
+  :deep(.el-table__header th) {
+    background-color: #2b3542;
+    color: #e0e0e0;
+    padding: 12px;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  :deep(.el-table__body td) {
+    white-space: nowrap;
+    padding: 12px;
+  }
+
+  :deep(.el-table__row:hover) {
+    cursor: pointer;
+  }
+  
+  /* 确保表格本身也完全填充 */
+  :deep(.el-table) {
+    width: 100% !important;
+    display: block;
+    min-width: 100% !important;
+  }
+  
+  /* 确保表头和数据列对齐 */
+  :deep(.el-table__header th),
+  :deep(.el-table__body td) {
+    box-sizing: border-box;
+  }
+  
+  /* 覆盖Element UI默认样式，确保表头跟随内容滚动 */
+  :deep(.el-table__header-wrapper) {
+    overflow: hidden;
+  }
+  
+  :deep(.el-table__body-wrapper) {
+    overflow: auto;
+  }
+  
+  /* 强制表格行和列使用相同的宽度计算方式 */
+  :deep(.el-table__row) {
+    width: 100% !important;
+  }
+}
+
+.pagination-section {
+  margin-top: 20px;
+  display: flex;
+  justify-content: center;
+}
