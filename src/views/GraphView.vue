@@ -443,17 +443,191 @@ const getRuleLevelType = (level) => {
   return typeMap[level] || 'info'
 }
 
+// 高亮多条边和相关节点的通用函数
+const highlightEdges = (edgesToHighlight) => {
+  if (!graphG.value || !edgesToHighlight || edgesToHighlight.length === 0) {
+    ElMessage.warning('没有找到符合条件的交易边');
+    return;
+  }
+  
+  console.log('开始高亮处理，边数:', edgesToHighlight.length);
+  
+  // 收集所有需要高亮的节点ID
+  const nodeIdsToHighlight = new Set();
+  // 收集所有需要高亮的边标识
+  const edgeIdsToHighlight = new Set();
+  
+  edgesToHighlight.forEach(edge => {
+    const sourceId = typeof edge.source === 'object' ? edge.source.id : edge.source;
+    const targetId = typeof edge.target === 'object' ? edge.target.id : edge.target;
+    
+    nodeIdsToHighlight.add(sourceId);
+    nodeIdsToHighlight.add(targetId);
+    
+    // 存储边的唯一标识，考虑无向图的情况
+    const edgeId1 = `${sourceId}-${targetId}`;
+    const edgeId2 = `${targetId}-${sourceId}`;
+    edgeIdsToHighlight.add(edgeId1);
+    edgeIdsToHighlight.add(edgeId2);
+    
+    console.log('添加高亮边ID:', edgeId1, edgeId2, '边数据:', { source: sourceId, target: targetId, amount: edge.amount });
+  });
+  
+  console.log('高亮边ID集合大小:', edgeIdsToHighlight.size);
+  console.log('高亮节点ID集合大小:', nodeIdsToHighlight.size);
+  
+  // 恢复所有节点和边的原始样式
+  graphG.value.selectAll('.node circle')
+    .transition().duration(300)
+    .attr('opacity', d => nodeIdsToHighlight.has(d.id) ? 1 : 0.6)
+    .attr('r', d => nodeIdsToHighlight.has(d.id) ? 15 : d.size)
+    .attr('stroke', d => nodeIdsToHighlight.has(d.id) ? '#1890ff' : d.isCore ? '#fff' : '#434d5c')
+    .attr('stroke-width', d => nodeIdsToHighlight.has(d.id) ? 3 : d.isCore ? 3 : 1);
+  
+  // 高亮选中的边，完全隐藏不符合条件的边
+  graphG.value.selectAll('.links line')
+    .transition().duration(300)
+    .attr('opacity', d => {
+      const sourceId = typeof d.source === 'object' ? d.source.id : d.source;
+      const targetId = typeof d.target === 'object' ? d.target.id : d.target;
+      const edgeId1 = `${sourceId}-${targetId}`;
+      const edgeId2 = `${targetId}-${sourceId}`;
+      const isHighlighted = edgeIdsToHighlight.has(edgeId1) || edgeIdsToHighlight.has(edgeId2);
+      
+      // 添加调试日志，跟踪每条边的透明度设置
+      if (!isHighlighted) {
+        console.log('边未高亮 (设置为透明):', edgeId1, '数据:', { source: sourceId, target: targetId, amount: d.amount });
+      }
+      
+      // 完全隐藏不符合条件的边
+      return isHighlighted ? 1 : 0;
+    })
+    .attr('stroke', d => {
+      const sourceId = typeof d.source === 'object' ? d.source.id : d.source;
+      const targetId = typeof d.target === 'object' ? d.target.id : d.target;
+      const edgeId1 = `${sourceId}-${targetId}`;
+      const edgeId2 = `${targetId}-${sourceId}`;
+      return edgeIdsToHighlight.has(edgeId1) || edgeIdsToHighlight.has(edgeId2) ? '#1890ff' : '#e2e2e2';
+    })
+    .attr('stroke-width', d => {
+      const sourceId = typeof d.source === 'object' ? d.source.id : d.source;
+      const targetId = typeof d.target === 'object' ? d.target.id : d.target;
+      const edgeId1 = `${sourceId}-${targetId}`;
+      const edgeId2 = `${targetId}-${sourceId}`;
+      return edgeIdsToHighlight.has(edgeId1) || edgeIdsToHighlight.has(edgeId2) ? 2.5 : 1.5;
+    });
+    
+  ElMessage.success(`找到 ${edgesToHighlight.length} 条符合条件的交易边`);
+};
+
 // 金额过滤处理
 const handleAmountFilter = () => {
-  // 实际项目中会重新请求数据或过滤现有数据
-  ElMessage.info(`已应用金额过滤: ¥${amountFilter.min.toLocaleString()} - ¥${amountFilter.max.toLocaleString()}`)
+  // 清除之前的选中状态
+  selectedNode.value = null;
+  selectedEdge.value = null;
+  
+  // 验证输入
+  const minAmount = parseFloat(amountFilter.min) || 0;
+  const maxAmount = parseFloat(amountFilter.max) || Infinity;
+  
+  if (minAmount > maxAmount) {
+    ElMessage.warning('最小金额不能大于最大金额');
+    return;
+  }
+  
+  // 检查graphData是否有效
+  if (!graphData || !Array.isArray(graphData.edges)) {
+    ElMessage.error('图数据未加载或格式无效');
+    return;
+  }
+  
+  console.log('开始金额筛选:', { minAmount, maxAmount });
+  console.log('总边数:', graphData.edges.length);
+  
+  // 显示前几条边的数据结构，帮助调试
+  if (graphData.edges.length > 0) {
+    console.log('边数据结构示例:', graphData.edges.slice(0, 3));
+  }
+  
+  // 严格按照边的amount字段进行过滤
+  const filteredEdges = graphData.edges.filter(edge => {
+    // 确保只使用amount字段，不使用其他备选字段
+    if (edge.amount === undefined || edge.amount === null) {
+      return false;
+    }
+    const edgeAmount = parseFloat(edge.amount);
+    const result = !isNaN(edgeAmount) && edgeAmount >= minAmount && edgeAmount <= maxAmount;
+    // 记录过滤过程
+    if (result) {
+      console.log('保留边:', { source: edge.source, target: edge.target, amount: edge.amount });
+    }
+    return result;
+  });
+  
+  console.log('筛选后边数:', filteredEdges.length);
+  
+  // 高亮显示过滤后的边和相关节点
+  highlightEdges(filteredEdges);
 }
 
 // 时间筛选处理
 const handleTimeFilter = () => {
-  if (timeRange.value && timeRange.value.length === 2) {
-    ElMessage.info(`已应用时间筛选: ${timeRange.value[0]} 至 ${timeRange.value[1]}`)
+  // 清除之前的选中状态
+  selectedNode.value = null;
+  selectedEdge.value = null;
+  
+  // 验证日期输入
+  if (!timeRange.value || timeRange.value.length !== 2) {
+    ElMessage.warning('请选择有效的时间范围');
+    return;
   }
+  
+  const startTime = new Date(timeRange.value[0]);
+  const endTime = new Date(timeRange.value[1]);
+  
+  if (startTime > endTime) {
+    ElMessage.warning('开始时间不能晚于结束时间');
+    return;
+  }
+  
+  // 检查graphData是否有效
+  if (!graphData || !Array.isArray(graphData.edges)) {
+    ElMessage.error('图数据未加载或格式无效');
+    return;
+  }
+  
+  // 严格按照边的txn_time字段进行过滤
+  const filteredEdges = graphData.edges.filter(edge => {
+    // 只使用txn_time字段，不使用其他备选字段
+    if (!edge.txn_time) {
+      return false;
+    }
+    
+    try {
+      const edgeTime = new Date(edge.txn_time);
+      
+      // 确保时间解析有效
+      if (isNaN(edgeTime.getTime())) {
+        return false;
+      }
+      
+      // 设置时间范围的边界
+      const startDate = new Date(startTime);
+      startDate.setHours(0, 0, 0, 0);
+      
+      const endDate = new Date(endTime);
+      endDate.setHours(23, 59, 59, 999);
+      
+      // 判断边的时间是否在时间范围内
+      return edgeTime >= startDate && edgeTime <= endDate;
+    } catch (error) {
+      console.warn('解析txn_time失败:', edge.txn_time, error);
+      return false;
+    }
+  });
+  
+  // 高亮显示过滤后的边和相关节点
+  highlightEdges(filteredEdges);
 }
 
 // 路径追踪处理
@@ -908,8 +1082,8 @@ const autoFitGraph = (svg, g, nodes, containerWidth, containerHeight) => {
   
   console.log(`自适应缩放: 图边界 - 宽: ${graphWidth}, 高: ${graphHeight}, 容器宽: ${containerWidth}, 容器高: ${containerHeight}`);
   
-  // 添加边距（留出20%的空间，确保图完全可见）
-  const margin = 0.2;
+  // 添加边距（留出10%的空间，确保图完全可见）
+  const margin = 0.1;
   const availableWidth = containerWidth * (1 - margin * 2);
   const availableHeight = containerHeight * (1 - margin * 2);
   
