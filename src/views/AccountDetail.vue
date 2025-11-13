@@ -3,7 +3,7 @@
 <div class="detail-header">
   <el-page-header @back="goBack">
     <template #content>
-      <span class="account-title">账户详情 - {{ account.id }}</span>
+      <span class="account-title">账户详情 - {{ account.acct_id || account.id }}</span>
     </template>
   </el-page-header>
 </div>
@@ -14,12 +14,12 @@
       <div class="info-section">
         <h3>基础信息</h3>
         <el-descriptions :column="2" border>
-          <el-descriptions-item label="账户ID">{{ account.id }}</el-descriptions-item>
-          <el-descriptions-item label="开户机构">{{ account.institution }}</el-descriptions-item>
-          <el-descriptions-item label="注册时间">{{ account.registerTime }}</el-descriptions-item>
-          <el-descriptions-item label="当前余额">
-            <span class="balance">¥{{ account.balance.toLocaleString() }}</span>
+          <el-descriptions-item label="账户ID">{{ account.acct_id || account.id }}</el-descriptions-item>
+          <el-descriptions-item label="风险评分">
+            <span :style="{color: getRiskColor(account.riskScore)}">{{ account.riskScore }}分</span>
           </el-descriptions-item>
+          <el-descriptions-item label="账户类型">{{ account.role === 'core' ? '核心成员' : '普通成员' }}</el-descriptions-item>
+          <el-descriptions-item label="团伙标签">{{ account.group_id || '-' }}</el-descriptions-item>
         </el-descriptions>
       </div>
 
@@ -127,15 +127,18 @@ const router = useRouter()
 // 账户数据
 const account = ref({
   id: props.id,
+  acct_id: '',
+  group_id: '',
+  role: 'member',
+  riskScore: 60,
   institution: '核心银行001',
   registerTime: '2023-05-15',
   balance: 1250000,
-  riskScore: 95,
   riskFactors: {
-frequency: 5,
-connections: 5,
-patterns: 4,
-history: 5
+frequency: 3,
+connections: 3,
+patterns: 3,
+history: 3
   },
   ruleVersion: 'v2.3.1',
   graphGeneratedTime: '2025-11-09 14:30:25',
@@ -146,6 +149,87 @@ history: 5
 { id: 'RULE0078', name: '夜间交易模式', description: '在深夜时段发生大额交易', triggerTime: '2025-11-06 23:55:22', level: '中' }
   ]
 })
+
+// 交易数据存储
+const accountTransactions = ref([])
+
+// 生成风险评分（根据角色生成不同范围的评分）
+const generateRiskScore = (role) => {
+  if (role === 'core') {
+    // 核心成员风险评分较高
+    return Math.floor(Math.random() * 30) + 70 // 70-99
+  } else {
+    // 普通成员风险评分中等
+    return Math.floor(Math.random() * 40) + 40 // 40-79
+  }
+}
+
+// 从CSV文件加载账户数据和交易数据
+const loadAccountData = async () => {
+  try {
+    // 同时加载节点数据和交易数据
+    const [nodesResponse, edgesResponse] = await Promise.all([
+      fetch('/src/data/group_nodes.csv'),
+      fetch('/src/data/group_edges.csv')
+    ]);
+    
+    if (!nodesResponse.ok || !edgesResponse.ok) {
+      throw new Error(`HTTP error! nodes: ${nodesResponse.status}, edges: ${edgesResponse.status}`);
+    }
+    
+    const nodesText = await nodesResponse.text();
+    const edgesText = await edgesResponse.text();
+    
+    // 解析CSV数据
+    const parseCSV = (csvText) => {
+      const lines = csvText.split('\n').filter(line => line.trim());
+      const headers = lines[0].split(',');
+      
+      return lines.slice(1).map(line => {
+        const values = line.split(',');
+        const row = {};
+        headers.forEach((header, index) => {
+          row[header] = values[index] || '';
+        });
+        return row;
+      });
+    };
+    
+    const nodesData = parseCSV(nodesText);
+    const edgesData = parseCSV(edgesText);
+    
+    // 查找与当前账户ID匹配的记录
+    const accountRecord = nodesData.find(record => record.acct_id === props.id);
+    
+    if (accountRecord) {
+      // 更新账户数据
+      account.value = {
+        ...account.value,
+        acct_id: accountRecord.acct_id,
+        group_id: accountRecord.group_id,
+        role: accountRecord.role,
+        riskScore: generateRiskScore(accountRecord.role)
+      };
+      
+      // 根据风险评分更新风险因素
+      const baseScore = Math.floor(account.value.riskScore / 20);
+      account.value.riskFactors = {
+        frequency: Math.min(5, baseScore + Math.floor(Math.random() * 2)),
+        connections: Math.min(5, baseScore + Math.floor(Math.random() * 2)),
+        patterns: Math.min(5, baseScore + Math.floor(Math.random() * 2)),
+        history: Math.min(5, baseScore + Math.floor(Math.random() * 2))
+      };
+    }
+    
+    // 存储交易数据
+    accountTransactions.value = edgesData;
+    
+  } catch (error) {
+    console.error('加载数据时出错:', error);
+    // 如果CSV文件加载失败，使用默认模拟数据
+    console.log('使用默认模拟数据');
+  }
+}
 
 // 图相关
 const transactionGraph = ref(null)
@@ -176,7 +260,7 @@ const goBack = () => {
 
 // 初始化交易图谱
 const initTransactionGraph = () => {
-  if (!transactionGraph.value) return
+  if (!transactionGraph.value || accountTransactions.value.length === 0) return
 
   // 清除之前的图
   d3.select(transactionGraph.value).selectAll("*").remove()
@@ -196,23 +280,51 @@ const initTransactionGraph = () => {
 .force("charge", d3.forceManyBody().strength(-200))
 .force("center", d3.forceCenter(width / 2, height / 2))
 
-  // 模拟数据
-  const graphData = {
-nodes: [
-  { id: account.value.id, isCurrent: true, isCore: false },
-  { id: "ACC000012", isCurrent: false, isCore: false },
-  { id: "ACC000045", isCurrent: false, isCore: true },
-  { id: "ACC000078", isCurrent: false, isCore: false },
-  { id: "ACC000023", isCurrent: false, isCore: false },
-  { id: "ACC000056", isCurrent: false, isCore: false }
-],
-links: [
-  { source: account.value.id, target: "ACC000012", amount: 50000 },
-  { source: account.value.id, target: "ACC000045", amount: 75000 },
-  { source: "ACC000012", target: "ACC000078", amount: 30000 },
-  { source: "ACC000045", target: "ACC000023", amount: 120000 },
-  { source: "ACC000023", target: "ACC000056", amount: 95000 }
-]
+  // 从真实交易数据构建图谱数据
+  const currentAccountId = account.value.acct_id || account.value.id;
+  
+  // 筛选与当前账户相关的交易
+  const relatedTransactions = accountTransactions.value.filter(tx => 
+    tx.source === currentAccountId || tx.target === currentAccountId
+  );
+  
+  // 获取所有涉及的账户ID
+  const accountIds = new Set([currentAccountId]);
+  relatedTransactions.forEach(tx => {
+    accountIds.add(tx.source);
+    accountIds.add(tx.target);
+  });
+  
+  // 构建节点数据
+  const nodes = Array.from(accountIds).map(id => {
+    return {
+      id: id,
+      isCurrent: id === currentAccountId,
+      isCore: id === currentAccountId ? account.value.role === 'core' : false // 简化处理，只对当前账户判断是否为core
+    };
+  });
+  
+  // 构建边数据
+  const links = relatedTransactions.map(tx => ({
+    source: tx.source,
+    target: tx.target,
+    amount: parseFloat(tx.amount)
+  }));
+  
+  const graphData = { nodes, links };
+  
+  // 如果没有相关交易，使用模拟数据作为备选
+  if (links.length === 0) {
+    graphData.nodes = [
+      { id: currentAccountId, isCurrent: true, isCore: account.value.role === 'core' },
+      { id: "ACC000012", isCurrent: false, isCore: false },
+      { id: "ACC000045", isCurrent: false, isCore: true },
+      { id: "ACC000078", isCurrent: false, isCore: false }
+    ];
+    graphData.links = [
+      { source: currentAccountId, target: "ACC000012", amount: 50000 },
+      { source: currentAccountId, target: "ACC000045", amount: 75000 }
+    ];
   }
 
   // 绘制边
@@ -321,9 +433,27 @@ simulation.alpha(0.3).restart()
   }
 }
 
-// 组件挂载
-onMounted(() => {
-  initTransactionGraph()
+// 组件挂载时加载数据
+onMounted(async () => {
+  try {
+    await loadAccountData()
+    
+    // 等待交易数据加载完成后初始化交易图谱
+    const checkTransactionsReady = () => {
+      if (accountTransactions.value.length > 0) {
+        setTimeout(() => {
+          initTransactionGraph()
+        }, 100)
+      } else {
+        // 如果交易数据还没加载完成，等待100ms后重试
+        setTimeout(checkTransactionsReady, 100)
+      }
+    }
+    checkTransactionsReady()
+  } catch (error) {
+    console.error('初始化组件时出错:', error)
+  }
+  
   window.addEventListener('resize', handleResize)
 })
 

@@ -3,37 +3,36 @@
 <div class="filter-section">
   <el-form :model="filterForm" label-width="100px" class="filter-form">
     <el-row :gutter="20">
-      <el-col :span="8">
-        <el-form-item label="规则名称">
-          <el-input v-model="filterForm.name" placeholder="请输入规则名称" />
-        </el-form-item>
-      </el-col>
-      <el-col :span="8">
-        <el-form-item label="规则状态">
-          <el-select v-model="filterForm.status" placeholder="请选择规则状态" clearable>
-            <el-option label="启用" value="enabled" />
-            <el-option label="禁用" value="disabled" />
-          </el-select>
-        </el-form-item>
-      </el-col>
-      <el-col :span="8">
-        <el-form-item label="风险等级">
-          <el-select v-model="filterForm.riskLevel" placeholder="请选择风险等级" clearable>
-            <el-option label="高" value="high" />
-            <el-option label="中" value="medium" />
-            <el-option label="低" value="low" />
-          </el-select>
-        </el-form-item>
-      </el-col>
-    </el-row>
-    <el-row>
-      <el-col :span="24" class="filter-actions">
-        <el-button type="primary" @click="handleSearch">查询</el-button>
-        <el-button @click="handleReset">重置</el-button>
-        <el-button type="success" @click="handleExport" :loading="exportLoading">导出CSV</el-button>
-        <el-button type="primary" @click="handleAddRule">新增规则</el-button>
-      </el-col>
-    </el-row>
+          <el-col :span="6">
+            <el-form-item label="规则名称">
+              <el-input v-model="filterForm.name" placeholder="请输入规则名称" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="6">
+            <el-form-item label="规则状态">
+              <el-select v-model="filterForm.status" placeholder="请选择规则状态" clearable>
+                <el-option label="启用" value="enabled" />
+                <el-option label="禁用" value="disabled" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="6">
+            <el-form-item label="风险等级">
+              <el-select v-model="filterForm.riskLevel" placeholder="请选择风险等级" clearable>
+                <el-option label="高" value="high" />
+                <el-option label="中" value="medium" />
+                <el-option label="低" value="low" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="6">
+            <el-form-item label="" class="filter-actions">
+              <el-button type="primary" @click="handleSearch">查询</el-button>
+              <el-button @click="handleReset">重置</el-button>
+              <el-button type="success" @click="handleExport" :loading="exportLoading">导出CSV</el-button>
+            </el-form-item>
+          </el-col>
+        </el-row>
   </el-form>
 </div>
 
@@ -42,19 +41,19 @@
     :data="tableData" 
     style="width: 100%" 
     v-loading="loading"
-    class="rules-table"
+    class="rules-table text-center"
   >
-    <el-table-column prop="id" label="规则ID" width="120" />
-    <el-table-column prop="name" label="规则名称" width="200" />
-    <el-table-column prop="description" label="规则描述" />
-    <el-table-column prop="riskLevel" label="风险等级" width="100">
+    <el-table-column prop="id" label="规则ID" width="120" class-name="black-text" />
+    <el-table-column prop="name" label="规则名称" width="200" class-name="black-text" />
+    <el-table-column prop="description" label="规则描述" class-name="black-text"/>
+    <el-table-column prop="riskLevel" label="风险等级" width="150">
       <template #default="scope">
         <el-tag :type="getRiskTagType(scope.row.riskLevel)">
           {{ scope.row.riskLevel }}
         </el-tag>
       </template>
     </el-table-column>
-    <el-table-column prop="status" label="状态" width="100">
+    <el-table-column prop="status" label="状态" width="150">
       <template #default="scope">
         <el-switch
           v-model="scope.row.status"
@@ -67,8 +66,7 @@
         </span>
       </template>
     </el-table-column>
-    <el-table-column prop="version" label="版本号" width="100" />
-    <el-table-column prop="lastUpdate" label="最后更新" width="180" />
+    <!-- 版本号和最后更新列已删除 -->
     <el-table-column label="操作" width="150">
       <template #default="scope">
         <el-button size="small" @click="handleEdit(scope.row)">编辑</el-button>
@@ -305,3 +303,30 @@ onMounted(() => {
 </script>
 
 <style src="./RulesList.less" scoped></style>
+
+<style scoped>
+/* 表格文字居中样式 - 使用:deep选择器提高优先级 */
+.text-center :deep(.el-table__header th),
+.text-center :deep(.el-table__body td) {
+  text-align: center !important;
+}
+/* 确保th内的div.cell元素在表格内居中 */
+.text-center :deep(.el-table__header th .cell) {
+  display: inline-block;
+  text-align: center !important;
+  width: 100%;
+  margin: 0 auto;
+}
+/* 确保td内的div.cell元素在表格内居中 */
+.text-center :deep(.el-table__body td .cell) {
+  display: inline-block;
+  text-align: center !important;
+  width: 100%;
+  margin: 0 auto;
+}
+/* 规则id、规则名称、规则描述字段的黑色文字颜色 */
+.text-center :deep(.el-table__body td.black-text .cell) {
+  color: #000000;
+  font-size: 12px;
+}
+</style>

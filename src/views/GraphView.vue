@@ -45,36 +45,23 @@
         <div class="control-group">
           <h4>路径追踪</h4>
           <div class="path-tracking">
-            <el-select 
+            <el-input 
               v-model="pathTracking.startNode" 
               placeholder="起始节点" 
-              class="node-select"
-            >
-              <el-option
-                v-for="node in nodesList"
-                :key="node.id"
-                :label="node.id"
-                :value="node.id"
-              />
-            </el-select>
-            <el-select 
+              class="node-input"
+            />
+            <el-input 
               v-model="pathTracking.endNode" 
               placeholder="终止节点" 
-              class="node-select"
-            >
-              <el-option
-                v-for="node in nodesList"
-                :key="node.id"
-                :label="node.id"
-                :value="node.id"
-              />
-            </el-select>
+              class="node-input"
+            />
             <el-button type="primary" @click="handlePathTracking">查询</el-button>
           </div>
         </div>
         
         <div class="control-group">
-          <el-button @click="handleResetView">重置视图</el-button>
+          <h4>重置视图</h4>
+          <el-button type="primary" @click="handleResetView">重置视图</el-button>
         </div>
       </div>
       
@@ -174,7 +161,7 @@ import { Close } from '@element-plus/icons-vue'
 // 控制参数
 const amountFilter = reactive({
   min: 0,
-  max: 100000
+  max: 0
 })
 
 const timeRange = ref(['2025-11-01', '2025-11-30'])
@@ -660,7 +647,9 @@ const handlePathTracking = () => {
   const shortestPath = findShortestPath(graphData, pathTracking.startNode, pathTracking.endNode)
   
   if (shortestPath.length > 0 && shortestPath[0] === pathTracking.startNode) {
-    ElMessage.success(`找到从 ${pathTracking.startNode} 到 ${pathTracking.endNode} 的最短路径，长度: ${shortestPath.length - 1} 跳`)
+    // 生成路径的详细信息，格式为A->B->C
+    const pathDetails = shortestPath.join(' -> ');
+    ElMessage.success(`找到从 ${pathTracking.startNode} 到 ${pathTracking.endNode} 的最短路径，长度: ${shortestPath.length - 1} 跳\n路径: ${pathDetails}`)
     // 高亮显示路径，其他节点和边淡化
     highlightPath(shortestPath)
   } else {

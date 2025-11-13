@@ -62,6 +62,27 @@
   :deep(.el-table__body td) {
     white-space: nowrap;
     padding: 12px;
+    text-align: center;
+  }
+  
+  /* 确保表格单元格中的div内容居中 */
+  :deep(.el-table__body td .cell) {
+    text-align: center;
+  }
+  
+  /* 将账户ID、注册IP、设备ID、手机号列的文字颜色改为黑色并调整字体大小 */
+  :deep(.el-table__body td:nth-child(1) .cell),
+  :deep(.el-table__body td:nth-child(5) .cell),
+  :deep(.el-table__body td:nth-child(6) .cell),
+  :deep(.el-table__body td:nth-child(7) .cell) {
+    color: #000000;
+    font-size: 12px;
+  }
+  
+  /* 确保团伙标签文字颜色为白色 */
+  /* 使用更通用的选择器，避免依赖HTML属性 */
+  :deep(.el-table__body td:nth-child(4) .cell .el-tag) {
+    color: #ffffff !important;
   }
 
   :deep(.el-table__row:hover) {
