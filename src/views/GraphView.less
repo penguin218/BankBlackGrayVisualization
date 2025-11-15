@@ -15,8 +15,8 @@
 
 .graph-controls {
   position: absolute;
-  top: 20px;
-  left: 20px;
+  top: 0;
+  left: 0;
   background-color: rgba(27, 35, 48, 0.9);
   padding: 20px;
   border-radius: 4px;
@@ -143,56 +143,86 @@
   position: absolute;
   right: 0;
   top: 0;
-  width: 300px; /* 增加宽度使其更宽敞 */
+  width: 360px;
   height: 100%;
-  background-color: #1b2330;
+  background: linear-gradient(180deg, #16202c 0%, #1b2330 100%);
   border-left: 1px solid #2b3542;
-  padding: 20px;
+  padding: 24px;
   overflow-y: auto;
-  z-index: 20; /* 确保在SVG上方显示 */
-  box-shadow: -2px 0 8px rgba(0, 0, 0, 0.3); /* 增加阴影效果 */
+  z-index: 20;
+  box-shadow: -2px 0 12px rgba(0, 0, 0, 0.35);
+  animation: panel-slide-in 240ms ease both;
 }
 
 .edge-detail {
   position: absolute;
   right: 0;
   top: 0;
-  width: 300px; /* 增加宽度使其更宽敞 */
+  width: 360px;
   height: 100%;
-  background-color: #1b2330;
+  background: linear-gradient(180deg, #16202c 0%, #1b2330 100%);
   border-left: 1px solid #2b3542;
-  padding: 20px;
+  padding: 24px;
   overflow-y: auto;
-  z-index: 20; /* 确保在SVG上方显示 */
-  box-shadow: -2px 0 8px rgba(0, 0, 0, 0.3); /* 增加阴影效果 */
+  z-index: 20;
+  box-shadow: -2px 0 12px rgba(0, 0, 0, 0.35);
+  animation: panel-slide-in 240ms ease both;
+}
+@keyframes panel-slide-in {
+  from { transform: translateX(20px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
 }
 
 .detail-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid #2b3542;
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, rgba(24,144,255,0.15), rgba(24,144,255,0.03));
+  border: 1px solid #2b3542;
 
   h3 {
     margin: 0;
-    color: #e0e0e0;
+    color: #e6f7ff;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+
+  :deep(.el-button) {
+    border-color: #2b3542;
+    color: #c0d5ff;
+    background-color: rgba(27,35,48,0.6);
+  }
+  :deep(.el-button:hover) {
+    color: #1890ff;
+    border-color: #1890ff;
   }
 }
 
 .detail-section {
-  margin-bottom: 25px;
+  margin-bottom: 20px;
+  padding: 16px;
+  border-radius: 8px;
+  background-color: #202a38;
+  box-shadow: 0 0 0 1px #2b3542 inset;
 
   &:last-child {
     margin-bottom: 0;
   }
 
   h4 {
-    margin: 0 0 15px 0;
-    color: #e0e0e0;
+    margin: 0 0 12px 0;
+    color: #cdd7e1;
     font-weight: 600;
+    font-size: 14px;
   }
+
+  :deep(.el-descriptions) { margin-top: 8px; }
+  :deep(.el-descriptions__label) { color: #8aa4c2; }
+  :deep(.el-descriptions__content) { color: #a6b3c4; }
+  .no-data { color: #8aa4c2; font-size: 12px; padding: 8px 0; }
 }
 
 .risk-score {

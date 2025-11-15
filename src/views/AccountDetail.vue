@@ -3,90 +3,36 @@
 <div class="detail-header">
   <el-page-header @back="goBack">
     <template #content>
-      <span class="account-title">账户详情 - {{ account.acct_id || account.id }}</span>
+      <span class="account-title">账户详情 - {{ account.id }}</span>
     </template>
   </el-page-header>
 </div>
 
 <div class="detail-content">
   <el-row :gutter="20">
-    <el-col :span="16">
+    <el-col :span="12">
       <div class="info-section">
         <h3>基础信息</h3>
-        <el-descriptions :column="2" border>
-          <el-descriptions-item label="账户ID">{{ account.acct_id || account.id }}</el-descriptions-item>
-          <el-descriptions-item label="风险评分">
-            <span :style="{color: getRiskColor(account.riskScore)}">{{ account.riskScore }}分</span>
-          </el-descriptions-item>
-          <el-descriptions-item label="账户类型">{{ account.role === 'core' ? '核心成员' : '普通成员' }}</el-descriptions-item>
-          <el-descriptions-item label="团伙标签">{{ account.group_id || '-' }}</el-descriptions-item>
+        <el-descriptions :column="1" border>
+          <el-descriptions-item label="账户ID">{{ account.id || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="团伙ID">{{ account.group_id || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="风险等级">{{ getRiskLevelLabel(account.acct_risk_level_name) }}</el-descriptions-item>
+          <el-descriptions-item label="风险分">{{ Number(account.acct_risk_score ?? 0).toFixed(3) }}</el-descriptions-item>
+          <el-descriptions-item label="净流出金额">¥{{ Number(account.txn_net_out_amt || 0).toLocaleString() }}</el-descriptions-item>
+          <el-descriptions-item label="出入账金额比">{{ account.txn_out_in_ratio ?? '-' }}</el-descriptions-item>
+          <el-descriptions-item label="PageRank">{{ account.graph_pr ?? '-' }}</el-descriptions-item>
+          <el-descriptions-item label="入度">{{ account.graph_in_deg ?? '-' }}</el-descriptions-item>
+          <el-descriptions-item label="出度">{{ account.graph_out_deg ?? '-' }}</el-descriptions-item>
+          <el-descriptions-item label="加权出度">{{ account.graph_weighted_out_deg ?? '-' }}</el-descriptions-item>
         </el-descriptions>
-      </div>
-
-      <div class="info-section">
-        <h3>风险评分拆解</h3>
-        <div class="risk-score-overview">
-          <div class="total-score">
-            <el-progress 
-              type="circle" 
-              :percentage="account.riskScore" 
-              :width="120"
-              :color="getRiskColor(account.riskScore)"
-            />
-            <div class="score-label">总风险评分</div>
-            <div class="score-value">{{ account.riskScore }}分</div>
-          </div>
-          <div class="score-breakdown">
-            <div class="breakdown-item">
-              <span>交易频次</span>
-              <el-rate v-model="account.riskFactors.frequency" :max="5" disabled />
-              <span class="score">{{ account.riskFactors.frequency * 20 }}分</span>
-            </div>
-            <div class="breakdown-item">
-              <span>关联账户数</span>
-              <el-rate v-model="account.riskFactors.connections" :max="5" disabled />
-              <span class="score">{{ account.riskFactors.connections * 20 }}分</span>
-            </div>
-            <div class="breakdown-item">
-              <span>异常模式</span>
-              <el-rate v-model="account.riskFactors.patterns" :max="5" disabled />
-              <span class="score">{{ account.riskFactors.patterns * 20 }}分</span>
-            </div>
-            <div class="breakdown-item">
-              <span>历史记录</span>
-              <el-rate v-model="account.riskFactors.history" :max="5" disabled />
-              <span class="score">{{ account.riskFactors.history * 20 }}分</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="info-section">
-        <div class="section-header">
-          <h3>命中规则</h3>
-          <el-tag type="danger">版本号: {{ account.ruleVersion }}</el-tag>
-        </div>
-        <el-table :data="account.rules" style="width: 100%" class="rules-table">
-          <el-table-column prop="id" label="规则ID" width="120" />
-          <el-table-column prop="name" label="规则名称" />
-          <el-table-column prop="description" label="规则描述" />
-          <el-table-column prop="triggerTime" label="触发时间" width="180" />
-          <el-table-column prop="level" label="风险等级" width="100">
-            <template #default="scope">
-              <el-tag :type="getRuleLevelType(scope.row.level)">
-                {{ scope.row.level }}
-              </el-tag>
-            </template>
-          </el-table-column>
-        </el-table>
       </div>
     </el-col>
 
-    <el-col :span="8">
+    <el-col :span="12">
       <div class="info-section">
         <div class="section-header">
           <h3>关联交易图谱</h3>
-          <el-tag type="warning">生成时间: {{ account.graphGeneratedTime }}</el-tag>
+
         </div>
         <div ref="transactionGraph" class="transaction-graph"></div>
         <div class="graph-legend">
@@ -98,10 +44,6 @@
             <div class="legend-color" style="background-color: #1890ff;"></div>
             <span>关联账户</span>
           </div>
-          <div class="legend-item">
-            <div class="legend-color" style="background-color: #52c41a;"></div>
-            <span>核心账户</span>
-          </div>
         </div>
       </div>
     </el-col>
@@ -111,7 +53,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, defineProps } from 'vue'
+import { ref, onMounted, onBeforeUnmount, defineProps, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import * as d3 from 'd3'
 
@@ -163,14 +105,26 @@ const generateRiskScore = (role) => {
     return Math.floor(Math.random() * 40) + 40 // 40-79
   }
 }
+const toNumber = (v) => {
+  const n = parseFloat(v)
+  return Number.isFinite(n) ? n : 0
+}
+const toInt = (v) => {
+  const n = parseInt(v)
+  return Number.isFinite(n) ? n : 0
+}
+const toBool = (v) => {
+  const s = String(v || '').toLowerCase()
+  return s === 'true' || s === '1' || s === 'y' || s === 'yes'
+}
 
 // 从CSV文件加载账户数据和交易数据
 const loadAccountData = async () => {
   try {
     // 同时加载节点数据和交易数据
     const [nodesResponse, edgesResponse] = await Promise.all([
-      fetch('/src/data/group_nodes.csv'),
-      fetch('/src/data/group_edges.csv')
+      fetch('/src/data/frontend_nodes_ext_filtered_by_edges.csv'),
+      fetch('/src/data/frontend_edges_ext.csv')
     ]);
     
     if (!nodesResponse.ok || !edgesResponse.ok) {
@@ -183,13 +137,12 @@ const loadAccountData = async () => {
     // 解析CSV数据
     const parseCSV = (csvText) => {
       const lines = csvText.split('\n').filter(line => line.trim());
-      const headers = lines[0].split(',');
-      
+      const headers = lines[0].split(',').map(h => h.trim());
       return lines.slice(1).map(line => {
-        const values = line.split(',');
+        const values = line.split(',').map(v => (v ?? '').trim());
         const row = {};
         headers.forEach((header, index) => {
-          row[header] = values[index] || '';
+          row[header] = values[index] ?? '';
         });
         return row;
       });
@@ -199,16 +152,24 @@ const loadAccountData = async () => {
     const edgesData = parseCSV(edgesText);
     
     // 查找与当前账户ID匹配的记录
-    const accountRecord = nodesData.find(record => record.acct_id === props.id);
+    const accountRecord = nodesData.find(record => record.acct_id === props.id || record.id === props.id);
     
     if (accountRecord) {
       // 更新账户数据
       account.value = {
         ...account.value,
-        acct_id: accountRecord.acct_id,
-        group_id: accountRecord.group_id,
-        role: accountRecord.role,
-        riskScore: generateRiskScore(accountRecord.role)
+        acct_id: (accountRecord.acct_id || accountRecord.id || '').trim(),
+        id: (accountRecord.id || accountRecord.acct_id || '').trim(),
+        group_id: (accountRecord.group_id || '').trim(),
+        role: (accountRecord.role || '').trim(),
+        acct_risk_level_name: (accountRecord.acct_risk_level_name || '').trim(),
+        acct_risk_score: toNumber(accountRecord.acct_risk_score),
+        txn_net_out_amt: toNumber(accountRecord.txn_net_out_amt),
+        txn_out_in_ratio: toNumber(accountRecord.txn_out_in_ratio),
+        graph_pr: toNumber(accountRecord.graph_pr),
+        graph_in_deg: toInt(accountRecord.graph_in_deg),
+        graph_out_deg: toInt(accountRecord.graph_out_deg),
+        graph_weighted_out_deg: toNumber(accountRecord.graph_weighted_out_deg)
       };
       
       // 根据风险评分更新风险因素
@@ -243,6 +204,14 @@ const getRiskColor = (score) => {
   return '#52c41a'
 }
 
+const getRiskLevelLabel = (level) => {
+  const v = String(level || '').toLowerCase()
+  if (v === 'safe') return '无关'
+  if (v === 'grey') return '灰系'
+  if (v === 'black') return '黑名单'
+  return level || '-'
+}
+
 // 获取规则等级类型
 const getRuleLevelType = (level) => {
   const typeMap = {
@@ -255,7 +224,7 @@ const getRuleLevelType = (level) => {
 
 // 返回上一页
 const goBack = () => {
-  router.go(-1)
+  router.push({ name: 'AccountList' })
 }
 
 // 初始化交易图谱
@@ -281,51 +250,54 @@ const initTransactionGraph = () => {
 .force("center", d3.forceCenter(width / 2, height / 2))
 
   // 从真实交易数据构建图谱数据
-  const currentAccountId = account.value.acct_id || account.value.id;
+  const currentAccountId = String(account.value.id || account.value.acct_id || '').trim()
   
   // 筛选与当前账户相关的交易
-  const relatedTransactions = accountTransactions.value.filter(tx => 
-    tx.source === currentAccountId || tx.target === currentAccountId
-  );
+  const relatedTransactions = accountTransactions.value.filter(tx => {
+    const s = String(tx.source || '').trim()
+    const t = String(tx.target || '').trim()
+    return s === currentAccountId || t === currentAccountId
+  });
   
   // 获取所有涉及的账户ID
   const accountIds = new Set([currentAccountId]);
   relatedTransactions.forEach(tx => {
-    accountIds.add(tx.source);
-    accountIds.add(tx.target);
+    const s = String(tx.source || '').trim()
+    const t = String(tx.target || '').trim()
+    if (s) accountIds.add(s)
+    if (t) accountIds.add(t)
   });
   
   // 构建节点数据
+  const nodesCoreMap = {}
+  relatedTransactions.forEach(tx => {
+    const s = String(tx.source || '').trim()
+    const t = String(tx.target || '').trim()
+    if (s) nodesCoreMap[s] = nodesCoreMap[s] || toBool(tx.src_is_core)
+    if (t) nodesCoreMap[t] = nodesCoreMap[t] || toBool(tx.tgt_is_core)
+  })
   const nodes = Array.from(accountIds).map(id => {
     return {
       id: id,
       isCurrent: id === currentAccountId,
-      isCore: id === currentAccountId ? account.value.role === 'core' : false // 简化处理，只对当前账户判断是否为core
+      isCore: id === currentAccountId ? account.value.role === 'core' : Boolean(nodesCoreMap[id])
     };
   });
   
   // 构建边数据
-  const links = relatedTransactions.map(tx => ({
-    source: tx.source,
-    target: tx.target,
-    amount: parseFloat(tx.amount)
-  }));
+  const links = relatedTransactions.map(tx => {
+    const s = String(tx.source || '').trim()
+    const t = String(tx.target || '').trim()
+    return {
+      source: s,
+      target: t,
+      amount: toNumber(tx.amount)
+    }
+  });
   
   const graphData = { nodes, links };
   
-  // 如果没有相关交易，使用模拟数据作为备选
-  if (links.length === 0) {
-    graphData.nodes = [
-      { id: currentAccountId, isCurrent: true, isCore: account.value.role === 'core' },
-      { id: "ACC000012", isCurrent: false, isCore: false },
-      { id: "ACC000045", isCurrent: false, isCore: true },
-      { id: "ACC000078", isCurrent: false, isCore: false }
-    ];
-    graphData.links = [
-      { source: currentAccountId, target: "ACC000012", amount: 50000 },
-      { source: currentAccountId, target: "ACC000045", amount: 75000 }
-    ];
-  }
+
 
   // 绘制边
   const link = svg.append("g")
@@ -355,9 +327,7 @@ const initTransactionGraph = () => {
 .call(drag(simulation))
 .on("click", (event, d) => {
   if (!d.isCurrent) {
-    // 在新标签页中打开关联账户详情
-    const routeData = router.resolve({ name: 'AccountDetail', params: { id: d.id } })
-    window.open(routeData.href, '_blank')
+    router.push({ name: 'AccountDetail', params: { id: d.id } })
   }
 })
 
@@ -437,24 +407,15 @@ simulation.alpha(0.3).restart()
 onMounted(async () => {
   try {
     await loadAccountData()
-    
-    // 等待交易数据加载完成后初始化交易图谱
-    const checkTransactionsReady = () => {
-      if (accountTransactions.value.length > 0) {
-        setTimeout(() => {
-          initTransactionGraph()
-        }, 100)
-      } else {
-        // 如果交易数据还没加载完成，等待100ms后重试
-        setTimeout(checkTransactionsReady, 100)
-      }
-    }
-    checkTransactionsReady()
+    initTransactionGraph()
   } catch (error) {
     console.error('初始化组件时出错:', error)
   }
-  
   window.addEventListener('resize', handleResize)
+})
+watch(() => props.id, async () => {
+  await loadAccountData()
+  initTransactionGraph()
 })
 
 // 组件卸载前

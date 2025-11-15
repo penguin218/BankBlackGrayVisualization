@@ -11,24 +11,43 @@
           <el-col :span="6">
             <el-form-item label="风险等级">
               <el-select v-model="filterForm.riskLevel" placeholder="请选择风险等级" clearable>
-                <el-option label="高风险" value="high" />
-                <el-option label="中风险" value="medium" />
-                <el-option label="低风险" value="low" />
+                <el-option label="高风险 (0.7~1)" value="high" />
+                <el-option label="中风险 (0.3~0.7)" value="medium" />
+                <el-option label="低风险 (0~0.3)" value="low" />
               </el-select>
             </el-form-item>
           </el-col>
+          <el-col :span="6">
+            <el-form-item label="账户类型">
+              <el-select v-model="filterForm.accountType" placeholder="请选择账户类型" clearable>
+                <el-option label="无关" value="safe" />
+                <el-option label="灰名单" value="grey" />
+                <el-option label="黑系" value="black" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="6">
+            <el-form-item label="是否是核心账户">
+              <el-select v-model="filterForm.isCore" placeholder="请选择" clearable>
+                <el-option label="是" value="true" />
+                <el-option label="否" value="false" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="20">
           <el-col :span="6">
             <el-form-item label="团伙标签">
-              <el-select v-model="filterForm.groupTag" placeholder="请选择团伙标签" clearable>
-                <el-option v-for="tag in groupTagOptions" :key="tag.value" :label="tag.label" :value="tag.value" />
-              </el-select>
+              <el-input v-model="filterForm.groupTag" placeholder="请输入团伙标签" clearable />
             </el-form-item>
           </el-col>
-          <el-col :span="6">
-            <el-form-item label="" class="filter-actions">
-              <el-button type="primary" @click="handleSearch">查询</el-button>
-              <el-button @click="handleReset">重置</el-button>
-              <el-button type="success" @click="handleExport" :loading="exportLoading">导出CSV</el-button>
+          <el-col :span="6" :offset="12">
+            <el-form-item label="" label-width="0">
+              <div style="width:100%;display:flex;justify-content:flex-end;">
+                <el-button type="primary" @click="handleSearch">查询</el-button>
+                <el-button @click="handleReset">重置</el-button>
+                <el-button type="success" @click="handleExport" :loading="exportLoading">导出CSV</el-button>
+              </div>
             </el-form-item>
           </el-col>
         </el-row>
@@ -43,32 +62,42 @@
         v-loading="loading"
         class="account-table"
       >
-        <el-table-column prop="id" label="账户ID" width="180" />
-        <el-table-column prop="riskScore" label="风险评分" width="100" sortable>
+        <el-table-column prop="id" label="账户ID" width="160" />
+        <el-table-column prop="acct_risk_score" width="160" header-align="center">
+          <template #header>
+            <div style="display:flex;align-items:center;justify-content:center;">
+              <span>风险分</span>
+              <span style="margin-left:6px;display:flex;flex-direction:column;line-height:1;">
+                <span :style="{ cursor: 'pointer', fontSize: '12px', color: sortOrder === 'asc' ? '#52c41a' : '#909399' }" @click.stop="setSort('asc')">↑</span>
+                <span :style="{ cursor: 'pointer', fontSize: '12px', color: sortOrder === 'desc' ? '#52c41a' : '#909399' }" @click.stop="setSort('desc')">↓</span>
+              </span>
+            </div>
+          </template>
           <template #default="scope">
-            <el-tag :type="getRiskTagType(scope.row.riskScore)">
-              {{ scope.row.riskScore }}
+            <span style="color:#000000">{{ Number(scope.row.acct_risk_score ?? 0).toFixed(3) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="acct_risk_level_name" label="账户类型" width="140">
+          <template #default="scope">
+            <el-tag :color="getRiskLevelTagColor(scope.row.acct_risk_level_name)" effect="dark" :style="{ color: '#ffffff' }">
+              {{ getRiskLevelLabel(scope.row.acct_risk_level_name) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="role" label="账户类型" width="100">
+        <el-table-column prop="acct_is_core" label="是否是核心账户" width="160">
           <template #default="scope">
-            <el-tag :type="getRoleTagType(scope.row.role)">
-              {{ getRoleLabel(scope.row.role) }}
+            <el-tag :color="getCoreTagColor(scope.row.acct_is_core)" text-color="#ffffff">
+              {{ isCoreLabel(scope.row.acct_is_core) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="groupTag" label="团伙标签" width="120">
+        <el-table-column prop="group_id" label="团伙标签" width="160">
           <template #default="scope">
-            <el-tag :color="getGroupTagColor(scope.row.groupTag)" text-color="#ffffff">
-              {{ scope.row.groupTag }}
+            <el-tag :color="getGroupTagColor(scope.row.group_id)" text-color="#ffffff">
+              {{ scope.row.group_id }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="registerIp" label="注册IP" width="150" />
-        <el-table-column prop="deviceId" label="设备ID" width="180" />
-        <el-table-column prop="phone" label="手机号" width="120" />
-        <!-- 最后更新时间列已移除 -->
         <el-table-column label="操作" width="120">
           <template #default="scope">
             <el-button size="small" @click.stop="viewDetail(scope.row)">查看详情</el-button>
@@ -102,17 +131,24 @@ const router = useRouter()
 const filterForm = ref({
   accountId: '',
   riskLevel: '',
+  accountType: '',
+  isCore: '',
   groupTag: ''
 })
 
-// 团伙标签选项列表
-const groupTagOptions = ref([])
+
 
 // 表格数据
 const tableData = ref([])
 const allNodes = ref([])
 const loading = ref(false)
 const exportLoading = ref(false)
+const sortOrder = ref('')
+const setSort = (order) => {
+  sortOrder.value = order
+  pagination.value.currentPage = 1
+  handleSearch()
+}
 
 // 解析CSV数据
 const parseCSV = (csvString) => {
@@ -132,7 +168,7 @@ const parseCSV = (csvString) => {
 // 读取CSV文件
 const loadCSVData = async () => {
   try {
-    const response = await fetch('/src/data/group_nodes.csv')
+    const response = await fetch('/src/data/frontend_nodes_ext_filtered_by_edges.csv')
     if (!response.ok) {
       throw new Error('Failed to load CSV file')
     }
@@ -141,21 +177,16 @@ const loadCSVData = async () => {
     
     // 转换为表格所需格式并添加额外信息
     allNodes.value = nodes.map(node => ({
-      id: node.acct_id,
-      groupTag: node.group_id,
-      riskScore: Math.floor(Math.random() * 100), // 模拟风险分数
-      registerIp: `192.168.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`, // 模拟IP
-      deviceId: `DEVICE${String(Math.floor(Math.random() * 10000)).padStart(5, '0')}`, // 模拟设备ID
-      phone: `1${Math.floor(Math.random() * 9) + 3}${Math.floor(Math.random() * 1000000000).toString().padStart(9, '0')}`, // 模拟手机号
-      role: node.role // 从CSV中直接读取的账户类型
+      id: node.id,
+      acct_risk_score: parseFloat(node.acct_risk_score),
+      riskScore: Math.round(parseFloat(node.acct_risk_score || 0) * 100),
+      acct_risk_level_name: node.acct_risk_level_name,
+      acct_is_core: String(node.acct_is_core),
+      group_id: node.group_id,
+      groupTag: node.group_id
     }))
     
-    // 从CSV数据中提取唯一的团伙标签并设置到下拉选项中
-    const uniqueGroupTags = [...new Set(nodes.map(node => node.group_id))]
-    groupTagOptions.value = uniqueGroupTags.map(tag => ({
-      label: tag,
-      value: tag
-    }))
+
   } catch (error) {
     console.error('Error loading CSV data:', error)
     ElMessage.error('加载数据失败')
@@ -215,22 +246,37 @@ const getGroupTagColor = (tag) => {
   return colors[index]
 }
 
-// 获取账户类型标签样式
-const getRoleTagType = (role) => {
-  const typeMap = {
-    'core': 'primary',
-    'member': 'success'
-  }
-  return typeMap[role] || 'info'
+// 风险类型标签颜色
+const getRiskLevelTagColor = (level) => {
+  const v = String(level || '').toLowerCase()
+  if (v === 'safe') return '#52c41a'
+  if (v === 'grey') return '#8c8c8c'
+  if (v === 'black') return '#000000'
+  return '#909399'
 }
 
-// 获取账户类型显示文本
-const getRoleLabel = (role) => {
-  const labelMap = {
-    'core': '核心账户',
-    'member': '成员账户'
-  }
-  return labelMap[role] || '未知类型'
+// 风险类型中文标签
+const getRiskLevelLabel = (level) => {
+  const v = String(level || '').toLowerCase()
+  if (v === 'safe') return '无关'
+  if (v === 'grey') return '灰名单'
+  if (v === 'black') return '黑系'
+  return level || '未知'
+}
+
+// 核心账户中文映射
+const isCoreLabel = (val) => {
+  const v = String(val || '').toLowerCase()
+  if (v === 'true' || v === '1') return '是'
+  if (v === 'false' || v === '0') return '否'
+  return val ? '是' : '否'
+}
+
+const getCoreTagColor = (val) => {
+  const v = String(val || '').toLowerCase()
+  if (v === 'true' || v === '1') return '#faad14'
+  if (v === 'false' || v === '0') return '#909399'
+  return '#909399'
 }
 
 // 查询处理
@@ -243,31 +289,57 @@ const handleSearch = () => {
     // 应用筛选条件
     if (filterForm.value.accountId) {
       filteredData = filteredData.filter(item => 
-        item.id.toLowerCase().includes(filterForm.value.accountId.toLowerCase())
+        item.id === filterForm.value.accountId
       )
     }
     
     if (filterForm.value.groupTag) {
       filteredData = filteredData.filter(item => 
-        item.groupTag.includes(filterForm.value.groupTag)
+        item.groupTag === filterForm.value.groupTag
       )
     }
-    
-    // 风险等级筛选（根据风险分数）
-    if (filterForm.value.riskLevel) {
-      if (filterForm.value.riskLevel === 'high') {
-        filteredData = filteredData.filter(item => item.riskScore >= 80)
-      } else if (filterForm.value.riskLevel === 'medium') {
-        filteredData = filteredData.filter(item => item.riskScore >= 60 && item.riskScore < 80)
-      } else if (filterForm.value.riskLevel === 'low') {
-        filteredData = filteredData.filter(item => item.riskScore < 60)
-      }
+
+    if (filterForm.value.isCore) {
+      const wantCore = filterForm.value.isCore === 'true'
+      filteredData = filteredData.filter(item => {
+        const s = String(item.acct_is_core).toLowerCase()
+        const isCore = s === 'true' || s === '1'
+        return isCore === wantCore
+      })
     }
     
-    // 更新分页信息
-    pagination.value.total = filteredData.length
+    // 风险等级筛选（依据 acct_risk_score 0~1）
+    if (filterForm.value.riskLevel) {
+      filteredData = filteredData.filter(item => {
+        const r = parseFloat(item.acct_risk_score)
+        if (isNaN(r)) return false
+        if (filterForm.value.riskLevel === 'high') return r >= 0.7 && r <= 1
+        if (filterForm.value.riskLevel === 'medium') return r >= 0.3 && r < 0.7
+        if (filterForm.value.riskLevel === 'low') return r >= 0 && r < 0.3
+        return true
+      })
+    }
+    if (filterForm.value.accountType) {
+      filteredData = filteredData.filter(item => {
+        const v = String(item.acct_risk_level_name || '').toLowerCase()
+        return v === filterForm.value.accountType
+      })
+    }
     
-    // 应用分页
+    if (sortOrder.value === 'asc') {
+      filteredData.sort((a, b) => {
+        const va = isNaN(a.acct_risk_score) ? 0 : a.acct_risk_score
+        const vb = isNaN(b.acct_risk_score) ? 0 : b.acct_risk_score
+        return va - vb
+      })
+    } else if (sortOrder.value === 'desc') {
+      filteredData.sort((a, b) => {
+        const va = isNaN(a.acct_risk_score) ? 0 : a.acct_risk_score
+        const vb = isNaN(b.acct_risk_score) ? 0 : b.acct_risk_score
+        return vb - va
+      })
+    }
+    pagination.value.total = filteredData.length
     const startIndex = (pagination.value.currentPage - 1) * pagination.value.pageSize
     const endIndex = startIndex + pagination.value.pageSize
     tableData.value = filteredData.slice(startIndex, endIndex)
@@ -281,8 +353,11 @@ const handleReset = () => {
   filterForm.value = {
     accountId: '',
     riskLevel: '',
+    accountType: '',
+    isCore: '',
     groupTag: ''
   }
+  sortOrder.value = ''
   pagination.value.currentPage = 1
   handleSearch()
 }
@@ -290,11 +365,84 @@ const handleReset = () => {
 // 导出处理
 const handleExport = () => {
   exportLoading.value = true
-  // 模拟导出过程
-  setTimeout(() => {
-    exportLoading.value = false
+  try {
+    let filteredData = [...allNodes.value]
+    if (filterForm.value.accountId) {
+      filteredData = filteredData.filter(item => item.id === filterForm.value.accountId)
+    }
+    if (filterForm.value.groupTag) {
+      filteredData = filteredData.filter(item => item.groupTag === filterForm.value.groupTag)
+    }
+    if (filterForm.value.isCore) {
+      const wantCore = filterForm.value.isCore === 'true'
+      filteredData = filteredData.filter(item => {
+        const s = String(item.acct_is_core).toLowerCase()
+        const isCore = s === 'true' || s === '1'
+        return isCore === wantCore
+      })
+    }
+    if (filterForm.value.riskLevel) {
+      filteredData = filteredData.filter(item => {
+        const r = parseFloat(item.acct_risk_score)
+        if (isNaN(r)) return false
+        if (filterForm.value.riskLevel === 'high') return r >= 0.7 && r <= 1
+        if (filterForm.value.riskLevel === 'medium') return r >= 0.3 && r < 0.7
+        if (filterForm.value.riskLevel === 'low') return r >= 0 && r < 0.3
+        return true
+      })
+    }
+    if (filterForm.value.accountType) {
+      filteredData = filteredData.filter(item => {
+        const v = String(item.acct_risk_level_name || '').toLowerCase()
+        return v === filterForm.value.accountType
+      })
+    }
+    if (sortOrder.value === 'asc') {
+      filteredData.sort((a, b) => {
+        const va = isNaN(a.acct_risk_score) ? 0 : a.acct_risk_score
+        const vb = isNaN(b.acct_risk_score) ? 0 : b.acct_risk_score
+        return va - vb
+      })
+    } else if (sortOrder.value === 'desc') {
+      filteredData.sort((a, b) => {
+        const va = isNaN(a.acct_risk_score) ? 0 : a.acct_risk_score
+        const vb = isNaN(b.acct_risk_score) ? 0 : b.acct_risk_score
+        return vb - va
+      })
+    }
+
+    const headers = ['ID','风险分','账户类型','是否是核心账户','团伙标签']
+    const escape = (v) => {
+      const s = String(v ?? '')
+      return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s
+    }
+    const rows = filteredData.map(item => [
+      item.id,
+      isNaN(item.acct_risk_score) ? '' : Number(item.acct_risk_score).toFixed(3),
+      getRiskLevelLabel(item.acct_risk_level_name),
+      isCoreLabel(item.acct_is_core),
+      item.group_id
+    ])
+    const csv = [headers.join(','), ...rows.map(r => r.map(escape).join(','))].join('\n')
+
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const now = new Date()
+    const ts = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}${String(now.getSeconds()).padStart(2,'0')}`
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `账户列表_${ts}.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
     ElMessage.success('导出成功')
-  }, 1000)
+  } catch (e) {
+    console.error('导出失败:', e)
+    ElMessage.error('导出失败')
+  } finally {
+    exportLoading.value = false
+  }
 }
 
 // 分页处理

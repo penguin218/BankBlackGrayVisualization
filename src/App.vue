@@ -13,9 +13,8 @@
             active-text-color="#4d80ff"
             router
           >
-            <el-menu-item index="/graph">图谱分析</el-menu-item>
+            <el-menu-item index="/graph">大图分析</el-menu-item>
             <el-menu-item index="/account_list">账户列表</el-menu-item>
-            <el-menu-item index="/rules">规则管理</el-menu-item>
           </el-menu>
         </div>
       </el-header>
